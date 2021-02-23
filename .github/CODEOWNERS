@@ -1,0 +1,13 @@
+# Lines starting with '#' are comments.
+# Each line is a file pattern followed by one or more owners,
+# the last matching pattern has the most precendence.
+
+# Protect important files like .gitignore and CODEOWNERS
+.* @okolufsen @otm1 @vgaupset
+CODEOWNERS @otm1 @vgaupset
+
+# No requirement for review of MarkDown files
+#*.md @ghost
+#/docs/ @ghost
+
+# other files follow default repo settings
