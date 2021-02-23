@@ -9,5 +9,5 @@ runs:
   using: 'composite'
   steps:
   - run: |
-      write-host "This is a test"
+      write-host "This is a test. The title is: ${{ inputs.fileName }}"
     shell: pwsh
