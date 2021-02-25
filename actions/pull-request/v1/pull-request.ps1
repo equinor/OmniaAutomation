@@ -9,6 +9,9 @@ $uniqueUserName = "github-actions-automated-pullrequest-$($branch)"
 $baseBranch = (git branch --show-current)
 git config --global user.email "github-actions@github.com"
 git config --global user.name $uniqueUserName
+Write-Host "Basebranch: $($baseBranch)"
+# Create new local branch 
+git checkout -b $branch
 
 Write-Host "The username for this agent is:"
 Write-Host $uniqueUserName
@@ -32,7 +35,6 @@ if ($RemoteString -like "*$branch*") {
     git fetch $remote $branch
     write-host "Fetched remote branch"
     $lastAuthor = (git log -n 1 "$($remoteBranch)")[1]
-    git branch -d $branch
     write-host "Last author:"
     Write-Host $lastAuthor
     # Last commit needs to be created by 'github-actions-automated-pullrequest-$($branch)' in order to force push to this branch
@@ -48,8 +50,6 @@ else{
     $PRstate = "NONEXISTENT"
     Write-Host "There is no remote branch named $($branch)"
 }
-# Create new branch
-git checkout -b $branch
 # Pushing - set upstream to remote 
 git push --set-upstream $remote $branch -f
 # Adding changes
