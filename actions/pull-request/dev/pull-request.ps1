@@ -9,6 +9,9 @@ $uniqueUserName = "github-actions-automated-pullrequest-$($branch)"
 $baseBranch = (git branch --show-current)
 git config --global user.email "github-actions@github.com"
 git config --global user.name $uniqueUserName
+Write-Host "Basebranch: $($baseBranch)"
+# Create new branch
+git checkout -b $branch
 
 Write-Host "The username for this agent is:"
 Write-Host $uniqueUserName
@@ -48,8 +51,6 @@ else{
     $PRstate = "NONEXISTENT"
     Write-Host "There is no remote branch named $($branch)"
 }
-# Create new branch
-git checkout -b $branch
 # Pushing - set upstream to remote 
 git push --set-upstream $remote $branch -f
 # Adding changes
