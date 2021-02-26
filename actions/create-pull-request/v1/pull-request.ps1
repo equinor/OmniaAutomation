@@ -39,7 +39,8 @@ if ($RemoteString -like "*$branch*") {
     Write-Host $lastAuthor
     # Last commit needs to be created by 'github-actions-automated-pullrequest-$($branch)' in order to force push to this branch
     if (!($lastAuthor -like "*$($uniqueUserName)*")) {
-        Write-host "Last commit was not created by '$($uniqeUserName)'"
+        Write-host "Last commit was not created by '$($uniqueUserName)'"
+        Write-host "Branch needs to be created by this action."
         exit
     }
     # Branch that is present in remote and has correct last author is expected to have a pull request history.
