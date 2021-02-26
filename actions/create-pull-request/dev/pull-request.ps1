@@ -41,6 +41,7 @@ if ($RemoteString -like "*$branch*") {
     if (!($lastAuthor -like "*$($uniqueUserName)*")) {
         Write-host "Last commit was not created by '$($uniqueUserName)'"
         Write-host "Branch needs to be created by this action."
+        throw ("Last commit was not created by '$($uniqueUserName)'`nBranch needs to be created by this action.")
         exit
     }
     # Branch that is present in remote and has correct last author is expected to have a pull request history.
@@ -68,5 +69,12 @@ else {
     # if pull request is active (open or draft), this action will only push changes. The pull request will automatically update according to new changes.
     git commit -m "Overwriting Pull Request with $($PRstate)"
     git push --force
+    try {
+        gh pr create --base $baseBranch --head $branch --title $title --body $body
+        write-host "A new pull request was created"
+    }
+    catch {
+        write-host "The pull request was updated"
+    }
 }
   
