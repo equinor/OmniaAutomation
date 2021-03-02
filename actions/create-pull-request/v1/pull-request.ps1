@@ -2,7 +2,8 @@ param (
     [Parameter(Mandatory = $false)]$title = "Automated Pull Request",
     [Parameter(Mandatory = $false)]$branch = "automatic-pull-request",
     [Parameter(Mandatory = $false)]$body = "This is an automated pull request",
-    [Parameter(Mandatory = $false)]$remote = "origin"
+    [Parameter(Mandatory = $false)]$remote = "origin",
+    [Parameter(Mandatory = $false)]$commitMessage = "Create-Pull-Request commit"
 )
 
 $uniqueUserName = "github-actions-automated-pullrequest-$($branch)"
@@ -47,34 +48,44 @@ if ($RemoteString -like "*$branch*") {
     # Branch that is present in remote and has correct last author is expected to have a pull request history.
     $PRstate = (gh pr view $branch)[1]
 }
-else{
+else {
     # If new branch needs to be created, there is no pull request history.
     $PRstate = "NONEXISTENT"
     Write-Host "There is no remote branch named $($branch)"
 }
-# Pushing - set upstream to remote 
-git push --set-upstream $remote $branch -f
 # Adding changes
 git add .
 
+git commit -m $commitMessage
+# Pushing - set upstream to remote 
+$isDiff = (git diff "$($remote)/$($baseBranch)")
+if ($null -eq $isDiff) {
+    write-host "There is no changes. Exiting Create-Pull-Request action.."
+    exit
+}
+git push --set-upstream $remote $branch -f
+# IMORTANT: Writing over current remote branch. The branch will have no commit history.
+git push --force
+
+if ($PRstate -ne "NONEXISTENT"){
+    try{
+        $PRstate = (gh pr view $branch)[1]
+    }
+    catch{
+        Write-Host "The last pull request was deleted."
+        $PRstate = "NONEXISTENT"
+    }
+}
+Write-Host "The current pull-request has $($PRstate)"
 # What state is the last pull request in?
 if ($PRstate -like "*CLOSED*" -or $PRstate -like "*MERGED*" -or $PRstate -like "*NONEXISTENT*") {
     # if pull request is not active, create new Pull Request
-    git commit -m "Initial Commit Creating Pull Request"
-    # IMORTANT: Writing over current remote branch. The branch will have no commit history.
-    git push --force
     gh pr create --base $baseBranch --head $branch --title $title --body $body
 }
 else {
-    # if pull request is active (open or draft), this action will only push changes. The pull request will automatically update according to new changes.
-    git commit -m "Overwriting Pull Request with $($PRstate)"
-    git push --force
-    try {
-        gh pr create --base $baseBranch --head $branch --title $title --body $body
-        write-host "A new pull request was created"
-    }
-    catch {
-        write-host "The pull request was updated"
-    }
+    # if pull request is active (open or draft)
+
+    write-host "A pull Request is already Open or in Draft from '$($remote)/$($branch)' to '$($remote)/$($baseBranch)'."
+
 }
   
