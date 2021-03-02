@@ -19,6 +19,7 @@ inputs:
   commitMessage:
     description: "The commit message in the dedicated branch"
     required: false
+    default: "create-pull-request commit"
 runs:
   using: "composite"
   steps:
