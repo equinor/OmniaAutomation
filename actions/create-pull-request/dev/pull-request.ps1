@@ -75,11 +75,12 @@ if ($PRstate -like "*CLOSED*" -or $PRstate -like "*MERGED*" -or $PRstate -like "
 else {
     # if pull request is active (open or draft). The pull request will try to create new pull request.
     try {
-        gh pr create --base $baseBranch --head $branch --title $title --body $body
+        gh pr create --base $baseBranch --head $branch --title $title --body $body -ErrorAction Stop
         write-host "A new pull request was created"
     }
     catch {
-        write-host "The pull request was updated"
+        write-host "A pull Request is already Open or in Draft from '$($remote)/$($branch)' to '$($remote)/$($baseBranch)'."
+        write-host "The Pull Request has been updated."
     }
 }
   
