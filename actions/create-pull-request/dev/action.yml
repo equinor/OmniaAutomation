@@ -16,6 +16,9 @@ inputs:
   Token:
     description: "Github token for authentication when logging in to gh cli"
     required: true
+  commitMessage:
+    description: "The commit message in the dedicated branch"
+    required: false
 runs:
   using: "composite"
   steps:
@@ -23,11 +26,12 @@ runs:
         write-host ($Env:GITHUB_WORKSPACE)
         $Env:GITHUB_TOKEN | gh auth login --with-token
         $PullRequestParameters = @{
-                                    Title     =     "${{ inputs.title }}"
-                                    Body      =     "${{ inputs.body }}"
-                                    Branch    =     "${{ inputs.dedicatedbranch }}"
+                                    Title         =     "${{ inputs.title }}"
+                                    Body          =     "${{ inputs.body }}"
+                                    Branch        =     "${{ inputs.dedicatedbranch }}"
+                                    commitMessage =     "${{ inputs.commitMessage }}"
                                   }
         & ${{ github.action_path }}/pull-request.ps1 @PullRequestParameters
       shell: pwsh
       env:
-        GITHUB_TOKEN: ${{ inputs.Token }} 
+        GITHUB_TOKEN: ${{ inputs.Token }}
