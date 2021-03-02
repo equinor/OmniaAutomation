@@ -20,7 +20,7 @@ jobs:
         run: |
           # DO SOME CHANGES
       - name: Create Pull Request
-        uses: equinor/OmniaAutomation/actions/create-pull-request/v1@24ee309c6fc2d64e5b713e26c96c7ed5e74cf7de
+        uses: equinor/OmniaAutomation/actions/create-pull-request/v1@10a0f43ea188df64e3a7f050f68f3258726e44ae
                                                                   # See table for ref (Commit or tag)
         with:
           Token: ${{ secrets.GITHUB_TOKEN }} # Required
@@ -40,7 +40,7 @@ jobs:
 
 | Version |                Commit ref                |
 | :-----: | :--------------------------------------: |
-|   v1    | 24ee309c6fc2d64e5b713e26c96c7ed5e74cf7de |
+|   v1    | 10a0f43ea188df64e3a7f050f68f3258726e44ae |
 
 ## Limitations
 
