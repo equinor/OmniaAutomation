@@ -67,20 +67,25 @@ git push --set-upstream $remote $branch -f
 # IMORTANT: Writing over current remote branch. The branch will have no commit history.
 git push --force
 
+if ($PRstate -ne "NONEXISTENT"){
+    try{
+        $PRstate = (gh pr view $branch)[1]
+    }
+    catch{
+        Write-Host "The last pull request was deleted."
+        $PRstate = "NONEXISTENT"
+    }
+}
+Write-Host "The current pull-request has $($PRstate)"
 # What state is the last pull request in?
 if ($PRstate -like "*CLOSED*" -or $PRstate -like "*MERGED*" -or $PRstate -like "*NONEXISTENT*") {
     # if pull request is not active, create new Pull Request
     gh pr create --base $baseBranch --head $branch --title $title --body $body
 }
 else {
-    # if pull request is active (open or draft). The pull request will try to create new pull request.
-    try {
-        gh pr create --base $baseBranch --head $branch --title $title --body $body -ErrorAction Stop
-        write-host "A new pull request was created"
-    }
-    catch {
-        write-host "A pull Request is already Open or in Draft from '$($remote)/$($branch)' to '$($remote)/$($baseBranch)'."
-        write-host "The Pull Request has been updated."
-    }
+    # if pull request is active (open or draft)
+
+    write-host "A pull Request is already Open or in Draft from '$($remote)/$($branch)' to '$($remote)/$($baseBranch)'."
+
 }
   
