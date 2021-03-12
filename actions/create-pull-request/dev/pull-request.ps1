@@ -34,7 +34,12 @@ Write-Host "String containing remote branches"
 Write-Output $RemoteString
 
 $remoteBranch = "$($remote)/$($branch)"
-
+try{
+    git fetch $remote $destinationBranch
+}
+catch{
+    write-host($_)
+}
 # Check if branch with name $branch is in remote 
 if ($RemoteString -like "*$branch*") {
     # Fetching and getting last commit information. 
@@ -63,12 +68,13 @@ else {
 git add .
 
 git commit -m $commitMessage
-# Pushing - set upstream to remote 
+
 $isDiff = (git diff "$($remote)/$($destinationBranch)")
 if ($null -eq $isDiff) {
     write-host "There is no changes. Exiting Create-Pull-Request action.."
     exit
 }
+# Pushing - set upstream to remote 
 git push --set-upstream $remote $branch -f
 # IMORTANT: Writing over current remote branch. The branch will have no commit history.
 git push --force
