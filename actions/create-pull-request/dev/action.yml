@@ -20,6 +20,10 @@ inputs:
     description: "The commit message in the dedicated branch"
     required: false
     default: "create-pull-request commit"
+  destinationBranch: 
+    description: "Destination for Pull Request"
+    required: false
+    default: "Current"
 runs:
   using: "composite"
   steps:
@@ -31,6 +35,7 @@ runs:
                                     Body          =     "${{ inputs.body }}"
                                     Branch        =     "${{ inputs.dedicatedbranch }}"
                                     commitMessage =     "${{ inputs.commitMessage }}"
+                                    destinationBranch = "${{ inputs.destinationBranch }}"
                                   }
         & ${{ github.action_path }}/pull-request.ps1 @PullRequestParameters
       shell: pwsh

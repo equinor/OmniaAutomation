@@ -2,15 +2,21 @@ param (
     [Parameter(Mandatory = $false)]$title = "Automated Pull Request",
     [Parameter(Mandatory = $false)]$branch = "automatic-pull-request",
     [Parameter(Mandatory = $false)]$body = "This is an automated pull request",
-    [Parameter(Mandatory = $false)]$remote = "origin",
-    [Parameter(Mandatory = $false)]$commitMessage = "Create-Pull-Request commit"
+    [Parameter(Mandatory = $false)]$remote = "origin",  
+    [Parameter(Mandatory = $false)]$commitMessage = "Create-Pull-Request commit",
+    [Parameter(Mandatory = $false)]$destinationBranch
 )
 
+
+
 $uniqueUserName = "github-actions-automated-pullrequest-$($branch)"
-$baseBranch = (git branch --show-current)
+$currentBranch = (git branch --show-current)
+Write-Host "currentbranch: $($currentBranch)"
+if ($destinationBranch -eq "Current"){
+$destinationBranch = $currentBranch
+}
 git config --global user.email "github-actions@github.com"
 git config --global user.name $uniqueUserName
-Write-Host "Basebranch: $($baseBranch)"
 # Create new local branch 
 git checkout -b $branch
 
@@ -58,7 +64,7 @@ git add .
 
 git commit -m $commitMessage
 # Pushing - set upstream to remote 
-$isDiff = (git diff "$($remote)/$($baseBranch)")
+$isDiff = (git diff "$($remote)/$($destinationBranch)")
 if ($null -eq $isDiff) {
     write-host "There is no changes. Exiting Create-Pull-Request action.."
     exit
@@ -80,12 +86,12 @@ Write-Host "The current pull-request has $($PRstate)"
 # What state is the last pull request in?
 if ($PRstate -like "*CLOSED*" -or $PRstate -like "*MERGED*" -or $PRstate -like "*NONEXISTENT*") {
     # if pull request is not active, create new Pull Request
-    gh pr create --base $baseBranch --head $branch --title $title --body $body
+    gh pr create --base $destinationBranch --head $branch --title $title --body $body
 }
 else {
     # if pull request is active (open or draft)
 
-    write-host "A pull Request is already Open or in Draft from '$($remote)/$($branch)' to '$($remote)/$($baseBranch)'."
+    write-host "A pull Request is already Open or in Draft from '$($remote)/$($branch)' to '$($remote)/$($destinationBranch)'."
 
 }
   
