@@ -40,8 +40,9 @@ try{
 catch{
     write-host($_)
 }
+
 if(!($RemoteString -like "*$destinationBranch*")){
-    throw ("Destination Branch '$destinationBranch' is not in remote.")
+    throw ("Destination Branch '$destinationBranch' was not found in remote '$remote'.")
     exit
 }
 # Check if branch with name $branch is in remote 
