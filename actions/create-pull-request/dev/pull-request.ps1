@@ -40,6 +40,10 @@ try{
 catch{
     write-host($_)
 }
+if(!($RemoteString -like "*$destinationBranch*")){
+    throw ("Destination Branch '$destinationBranch' is not in remote.")
+    exit
+}
 # Check if branch with name $branch is in remote 
 if ($RemoteString -like "*$branch*") {
     # Fetching and getting last commit information. 
