@@ -47,3 +47,6 @@ jobs:
 
 It is not allowed to use an already created branch as dedicated branch.
 This is to prevent unwanted overwriting of branches.
+
+It is per v2 only allowed to create pull request to one destination branch from a dedicated branch.
+If two or more pull requests are desired, please use two seperate dedicated branches.
