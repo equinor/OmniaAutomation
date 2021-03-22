@@ -10,18 +10,22 @@ The action creates a local branch with specified name (dedicatedBranch), adds an
 The action can ble implemented in github-actions as this:
 
 ```yaml
+on:
+  push: 
+    branches: 
+      - feature-branch
 jobs:
   Update-docs:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v2 #Checkout feature-branch
       - name: Do some changes
         shell: pwsh
         run: |
           # DO SOME CHANGES
       - name: Create Pull Request
         # See table for ref (Commit or tag)
-        uses: equinor/OmniaAutomation/actions/create-pull-request/v1@10a0f43ea188df64e3a7f050f68f3258726e44ae
+        uses: equinor/OmniaAutomation/actions/create-pull-request/v2@6ef0a424c9b39f87ecd5ff0d4168a66c7cd2ed6c
         with:
           Token: ${{ secrets.GITHUB_TOKEN }} # Required
           title: "Automatic update"
@@ -35,7 +39,8 @@ jobs:
             Only approve if:
               - This
               - That
-          dedicatedBranch: "Policy-Documentation-Update"
+          dedicatedBranch: "Temporary-Branch" # A branch that will be overwritten each run
+          destinationBranch: "main"           # The pull request target branch
 ```
 
 | Version |                Commit ref                |
@@ -50,3 +55,5 @@ This is to prevent unwanted overwriting of branches.
 
 It is per v2 only allowed to create pull request to one destination branch from a dedicated branch.
 If two or more pull requests are desired, please use two seperate dedicated branches.
+
+If destination branch is "Current", the pull request will use the checked out branch as destination.
