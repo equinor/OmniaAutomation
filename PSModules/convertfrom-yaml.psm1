@@ -1,166 +1,89 @@
 function get-splittedvalue {
     param (
-        [Parameter(Mandatory = $true)]$value,
-        [Parameter(Mandatory = $true)]$linenumber
+        [switch] $onlyvalue,
+        [Parameter(Mandatory = $true)] $value,
+        [Parameter(Mandatory = $true)] $linenumber
     )
     $hash = [ordered]@{}
-
-    $valueObj = ConvertFrom-StringData -Delimiter ':' -StringData $value
-    
+    if ($onlyvalue){
+        $processvalue = $value
+    } else {
+        $valueObj = ConvertFrom-StringData -Delimiter ':' -StringData $value
+        $key = $($valueObj.Keys[0])
+        $processvalue = $($valueObj.values)
+    }
+    $key = $key -replace '^[\s]*-[\s]+',''
+    $processvalue = $processvalue -replace '^[\s]*-[\s]+',''
     # If no value it is a key, return hash
-    if (!($($valueObj.values) -eq "")) { 
+    if (!($processvalue -eq "")) { 
+        switch -regex ($processvalue) {
+            # Looks for quotes in the start, denotes a text value
+            '^"(.*)"[\s]*$' {
+                #$valueObj = @{$($valueObj.Keys[0]) = $Matches[1]}
+                $returnvalue = $Matches[1]
+                #$hash.add($($valueObj.Keys[0]),$Matches[1])
+                write-host "I am in the switch, matched `" - Type: $($returnvalue.gettype()) key: $($key) value: $($returnvalue)"
+                write-host "matches: $($Matches[1])"
+                
+                break
+            }
+            <# # Find '- "value1" - value2' if there are quotes around the value then they are removed
+            '^[\s]*-[\s](.*)$' {
+                #$valueObj = @{$($valueObj.Keys[0]) = $Matches[1].split('- ').replace('"','').Trim()}
+                $returnvalue = $Matches[1].replace('"','')
+                write-host "I am in the switch, matched  - Type: $($returnvalue.gettype()) key: $($key) value: $($returnvalue)"
+                break
+            } #>
+            # Find '| some text in one line possibly with \n and paragraphs \n\n in the text' keep it all
+            '\|' {
+                #$hash.add($($valueObj.Keys[0]), $matches[1]) 
+                write-host "matches: $($Matches[1])"
+                #$returnvalue = $matches[1]          
+                #write-host "I am in the switch, matched | - Type: $($returnvalue.gettype()) key: $($key) value: $($returnvalue)" 
+                break
+            }
+            # # Find '
+            # '^[\s]*\[(.*)\][/s]*$' {
+            #     #$hash.add($($valueObj.Keys[0]), $matches[1].split(',').replace('"',''))
+            #     # test1, test2, test3
+            #     $match = '"testing1", testing2, testing4, testing5'
+            #     $match -replace '([a-zA-Z0-9-@]*)', '"$1"'
+            #     #$array = $matches[1] -replace '([a-zA-Z0-9-@]+),\s?([a-zA-Z0-9-@.]+)', '"$1": "$2"'
+            #     $array | convertfrom-json -Depth 100
+            #     #$valueObj = @{$($valueObj.Keys[0]) = $array}
+            #     $returnvalue = $array
+            #     write-host "I am in the switch, matched [..] - Type: $($returnvalue.gettype()) key: $($key) value: $($returnvalue)"
+            #     break
+            # }
+            '^>(.*)$' {
+                write-host "I am in the switch, matched > - Type: $($returnvalue.gettype()) key: $($key) value: $($returnvalue)"
+                throw "> not supported yet, check line $linenumber"
+            }
+            default{
+                try {
+                    #$valueObj = @{$($valueObj.Keys[0]) = [int]$($valueObj.Values) } 
+                    $returnvalue = [int]$($valueObj.Values)
+                    write-host "I am in the switch, matched default try - Type: $($returnvalue.gettype()) key: $($key) value: $($returnvalue)"
+                    Write-host "after the try"
+                }
+                catch {
+                    $returnvalue = $processvalue
+                    write-host "I am in the switch, matched default catch - Type: $($returnvalue.gettype()) key: $($key) value: $($returnvalue)"
+                }
+            }
+        }
+    } else { 
+        write-host "I am in the else - key: $($key)"
+        $returnvalue = $processvalue
+    }
+    if ($onlyvalue){
+        return $returnvalue
+    } else {
+        $valueObj = @{$key = $returnvalue}
+        return $valueObj
+    }
     
-    switch -regex ($($valueObj.Values)) {
-        # Looks for quotes in the start, denotes a text value
-        '^"(.*)"[\s]*$' {
-            $valueObj = @{$($valueObj.Keys[0]) = $Matches[1]}
-            #$hash.add($($valueObj.Keys[0]),$Matches[1])
-            break
-        }
-        # Find '- "value1" - value2' if there are quotes around the value then they are removed
-        '^-(.*)$' {
-            #$hash.add($($valueObj.Keys[0]),$Matches[1].split('- ').replace('"','').Trim())
-            $valueObj = @{$($valueObj.Keys[0]) = $Matches[1].split('- ').replace('"','').Trim()}
-            break
-        }
-        # Find '| some text in one line possibly with \n and paragraphs \n\n in the text' keep it all
-        '^\|[\s](.*)$' {
-            $hash.add($($valueObj.Keys[0]), $matches[1])            
-            break
-        }
-        # Find '
-        '^[\s]*\[(.*)\][/s]*$' {
-            #$hash.add($($valueObj.Keys[0]), $matches[1].split(',').replace('"',''))
-            $array = $matches[1] | convertfrom-json
-            $valueObj = @{$($valueObj.Keys[0]) = $array}
-            break
-        }
-        '^>(.*)$' {
-            throw "> not supported yet, check line $linenumber"
-        }
-        default{
-            try {
-                $valueObj = @{$($valueObj.Keys[0]) = [int]$($valueObj.Values) } 
-                Write-host "after the try"
-                #$test22 = [int]$($valueObj.Values)
-                #return $valueOjb
-            }
-            catch {
-                # Not overwritign hash 
-            }
-        }
-    }
-<#  switch -regex ($valueObj[$valueObj.keys][0]) {
-        # Find '   test: - "value1" - "value2"'
-        #'[\s]*[\S]+:[\s]+-[\s]+.*' {
-        '^[\s]+-[\s]+.*' {
-            #write-host "first-matches: $($matches[0])"
-            [System.Collections.ArrayList] $key = @()
-            [System.Collections.ArrayList] $newvalue = @()
-            #write-host "key with list"
-            $key = $matches[0].substring($whitespace) -replace '[ ""]',''
-            $newvalue = $key[1].split("-")
-            $newvalue.removeat(0)
-            #for ($i = 1; $i -lt $array2.Length; $i++ ){
-            #    $array3.add($array2[$i].replace('"',''))
-            #}
-            #write-host "matches: $matches"
-            $hash.add($key[0], $newvalue)
-            break
-        }
-        # Find '    key: | this is a \n new text'
-        #'[\s]*[\S]+:[\s]+\|.*' {
-        '^[\s]+\|.*' {
-            #write-host "second-matches: $($matches[0])"
-            [System.Collections.ArrayList] $key = @()
-            #write-host "key with list"
-            $key = $matches[0].substring($whitespace).split("|") #-replace '[]',''
-            #for ($i = 1; $i -lt $array2.Length; $i++ ){
-            #    $array3.add($array2[$i].replace('"',''))
-            #}
-            #write-host "matches: $matches"
-            $hash.add($key[0], $key[1].TrimStart())
-            break
-        }
-        # Find '    key: > this\n is\n\n a \n new text'
-        # Need to fix this one
-        #'[\s]*[\S]+:[\s]+>.*' {
-        '^[\s]+>.*' {
-            #write-host "second-matches: $($matches[0])"
-            [System.Collections.ArrayList] $key = @()
-            [System.Collections.ArrayList] $newvalue = @()
-            #write-host "key with list"
-            $key = $matches[0].substring($whitespace).split(">") #-replace '[]',''
-            $temp = $key[1].replace('\n\n',';NL-repLACE;')
-            $temp = $temp.replace('\\n',';inlNL-repLACE;')
-            $temp = $temp.replace('\n','')
-            $temp = $temp.replace(';NL-repLACE;','\n')
-            #$temp = $temp.replace(';inlNL-repLACE;','\\n')
-            $hash.add($key[0], $temp)
-            break
-        }
-        # Find '    test: {value1,value2}'
-        #'[\s]*[\S]+:[\s]+{.*' {
-        '^[\s]+{.*' {
-            #write-host "third-matches: $($matches[0])"
-            [System.Collections.ArrayList] $key = @()
-            [System.Collections.ArrayList] $newvalue = @()
-            #write-host "key with list"
-            $key = $matches[0].substring($whitespace).split(":") -replace '[ "{}"]',''
-            $newvalue = $key[1].split(",")
-            #$newvalue.removeat(0)
-            #for ($i = 1; $i -lt $array2.Length; $i++ ){
-            #    $array3.add($array2[$i].replace('"',''))
-            #}
-            #write-host "matches: $matches"
-            $hash.add($key[0], $newvalue)
-            break
-        }
-        # Find '      key: "value"'
-        #'[\s]*[\S]+:[\s]+[\S]+.*' {
-        '^[\s]+[\S]+.*' {
-            #write-host "fourth-matches: $($matches[0])"
-            [System.Collections.ArrayList] $key = @()
-            [System.Collections.ArrayList] $newvalue = @()
-            #write-host "key with list"
-            $key = $matches[0].substring($whitespace).split(":") -replace '[ ""]',''
-            #for ($i = 1; $i -lt $array2.Length; $i++ ){
-            #    $array3.add($array2[$i].replace('"',''))
-            #}
-            #write-host "matches: $matches"
-            $hash.add($key[0], $key[1])
-            break
-        }
-        # Find '   key: ' 
-        #'[\s]*[\S]+:[\s]*'{
-        '^[\s]*'{
-            #write-host "lastmatches: $($matches[0])"
-            #write-host "Heading (key)"
-            $array = $matches[0].substring($whitespace).split(":")
-            $hash.add($array[0],"")
-            break
-        }
-        default{ write-host "No match"}
-    } #>
-    }
-    return $valueObj
 }
-
-#[ test: testing, testing: one ]
-#- test: testing
-#  testing: one
-#[ test, teset2, test3 ]
-# { test: testing, what: blah}
-
-#$test = '  SubscriptionContext: s5   --asdløkfkjjsdf'
-#$test = '  SubscriptionContext:     "- test - test2 - test3"'
-#$test = '  SubscriptionContext:     -     te  ,st - te   st2       - test3'
-#$test = '  SubscriptionContext: 1'
-#$test = ' fsfdsdf: | sdfsdf sdf sdf sdf sdf\n asdfsdaf\n\n sdfsdf'
-#$test = ' fsfdsdf: > sdfsdf\n sdf sd\\nf sdf sdf\n asdfsdaf\n\n sdfsdf'
-#$test = ' Key1: [ "some vaøaskdjføksdjflue", "another value" ]'
-#$valueObj = ConvertFrom-StringData -Delimiter ':' -stringdata $test
-$output = get-splittedvalue -value $test -linenumber 10
 
 function new-helpIndex {
     param (
@@ -263,7 +186,7 @@ function Get-CleanData {
     for($i = $data.count -1; $i -ge 0; $i-- ) {
         if ($helpIndex[$i].vartype -eq "multiline") {
             if ($helpIndex[$i-1].vartype -eq "multiline") {
-                $currentMvalue = $($data[$i-1].substring($helpIndex[$i].whitespace))
+                $currentMvalue = $($data[$i-1].substring($helpIndex[$i-1].whitespace))
             } else {
                 $currentMvalue = $($data[$i-1])
             }
@@ -381,14 +304,14 @@ function Get-ParsedTree {
                 } else {
                     # Does not contain sub block. $vaule.value should contain the value.
                     if ($($helpIndex[$blockLine]).vartype -eq "value") {
-                        $value = $($($inputData[$blockLine].substring($helpIndex[$blockLine].indent)))
+                        #$value = $($($inputData[$blockLine].substring($helpIndex[$blockLine].indent)))
+                        $value = get-splittedvalue -value $($inputData[$blockLine]) -lineNumber $helpIndex[$blockLine].lineNumber -onlyvalue
                     } else {
                         $value = get-splittedvalue -value $($inputData[$blockLine]) -lineNumber $helpIndex[$blockLine].lineNumber
                     }
                     
                     if ($vartype -eq "dictionary") {
                         $hash += $value
-                        
                     } elseif ($vartype -eq "array") {
                  
                         # # Getting all lines that should be included in the element before adding it to the array
