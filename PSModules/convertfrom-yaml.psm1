@@ -181,11 +181,34 @@ function new-helpIndex {
                 $whitespace++
             } else {
                 if ($data[$i][$n] -eq "-" -and $data[$i][$n+1] -eq " ") { # Should look for more than one space. Need to fix this
-                    $vartype = "arrayStart"
+                    # Checking if key or string:
                     $indent += 2
+                    if (($($data[$i]) -Match ":.*$")) { # must fix
+                        Write-host "aaa"
+                        $vartype = "dictionary"
+                        
+                    } else {
+                        Write-host "bbb"
+                        $vartype = "value"
+
+                    }
                 } elseif ($data[$i][$n] -eq "#") {
-                    #$dataList.RemoveAt($i)
                     $vartype = "ignore"
+                } elseif (($($data[$i+1]) -Match "^[\s]*[-][\s]+")) {
+
+                    $nextIndent = 0
+                    if ($i -ne $data[$i].Length -1) {
+                        write-host "I is $i"
+                        write-host $($($data[$i+1]).Length - ($($data[$i+1]).trimstart()).Length)
+                        $nextIndent = $($($data[$i+1]).Length - ($($data[$i+1]).trimstart()).Length)
+                    }
+                    
+                    if ($indent -lt $nextIndent) { # must fix. Might access negative array
+                        $vartype = "array"
+                    } else {
+                        $vartype = "dictionary"
+                    }
+                    
                 } else {
                     $vartype = "dictionary"
                 }
@@ -236,6 +259,7 @@ function Get-CleanData {
         }
     }
     $mValue = $null
+#    $sValue = $null
     for($i = $data.count -1; $i -ge 0; $i-- ) {
         if ($helpIndex[$i].vartype -eq "multiline") {
             if ($helpIndex[$i-1].vartype -eq "multiline") {
@@ -250,10 +274,14 @@ function Get-CleanData {
             }
             [void]$data.RemoveAt($i)
             [void]$helpIndex.RemoveAt($i)
+            
         } else {
             if($mValue) {
                 $data[$i] = $mValue
                 $mValue = $null
+            } elseif ($sValue) {
+                $data[$i] = $sValue
+                $sValue = $null
             }
         }
     }
@@ -268,12 +296,13 @@ function Get-CleanData {
         if ($data[$i] -Match "^[\s]*[\S]+.*:[\s]+[\S]+") {   
             # If key contains value on line, do not allow value on next line ( no indent)
             if ($($helpIndex[$i+1].Indent) -gt $($helpIndex[$i].Indent) ) {
-                throw "Error on line $($helpIndex[$i].lineNumber), $($inputDataDirty[$($helpIndex[$i].lineNumber)]). While parsing a block mapping, found multipe types"
+                write-host "match on $($data[$i])"
+                #throw "Error on line $($helpIndex[$i].lineNumber), $($inputDataDirty[$($helpIndex[$i].lineNumber)]). While parsing a block mapping, found multipe types"
             }
         } elseif ( -not ($data[$i] -Match "^[\s]*[\S]+.*:[\s]*[\S]*")) {
             # If key does not contain value on line, allow vaule on next line
             # Space after semicolon not required
-            throw "Error on line $($helpIndex[$i].lineNumber), $($inputDataDirty[$($helpIndex[$i].lineNumber)]). While scanning a simple key, could not find key name or ':'"
+            #temp# throw "Error on line $($helpIndex[$i].lineNumber), $($inputDataDirty[$($helpIndex[$i].lineNumber)]). While scanning a simple key, could not find key name or ':'"
         } else {
             $blockLevel =$i+1
             for($x = $i+2; $x -lt $data.count; $x++ ) {
@@ -301,7 +330,7 @@ function Get-ParsedTree {
     )
     $hash = [ordered]@{}
     [System.Collections.ArrayList] $array = @()
-    $vartype = $($helpIndex[$startRow+1]).vartype
+    $vartype = $($helpIndex[$startRow]).vartype
     for($i = $startRow; $i -le $endRow; $i++ ) {
         
         $blockStart = $i+1
@@ -335,32 +364,48 @@ function Get-ParsedTree {
                     ##
                     ##
 
-                    $value = get-splittedvalue -value $($inputData[$blockLine]) -whitespace $helpIndex[$blockLine].whitespace
+                    $value = get-splittedvalue -value $($inputData[$blockLine]) -lineNumber $helpIndex[$blockLine].lineNumber
                     if($value.values -and $value.values -ne ""){
                         throw "Error, contains value: $($value.values)"
                     } else {
                         # Adding value from sub block:
                         $returnedObject =Get-ParsedTree -inputData $inputData -helpIndex $helpIndex -startRow $blockLine -endRow $($blockLine + $subBlockCount)
-                        $hash.Add($($value.keys),$returnedObject)
+                        if ($vartype -eq "dictionary") {
+                            $hash.Add($($value.keys),$returnedObject)
+                        } elseif ($vartype -eq "array") {
+                            [void]$array.add($value)
+                        }
+                        
                     }
 
                 } else {
                     # Does not contain sub block. $vaule.value should contain the value.
-                    $value = get-splittedvalue -value $($inputData[$blockLine]) -whitespace $helpIndex[$blockLine].whitespace
-                    if ($($helpIndex[$blockLine]).vartype -eq "dictionary") {
+                    if ($($helpIndex[$blockLine]).vartype -eq "value") {
+                        $value = $($($inputData[$blockLine].substring($helpIndex[$blockLine].indent)))
+                    } else {
+                        $value = get-splittedvalue -value $($inputData[$blockLine]) -lineNumber $helpIndex[$blockLine].lineNumber
+                    }
+                    
+                    if ($vartype -eq "dictionary") {
                         $hash += $value
-                    } elseif (($($helpIndex[$blockLine]).vartype -eq "arrayStart")) {
                         
-                        # Getting all lines that should be included in the element before adding it to the array
-                        for ($arrayLine = $blockLine+1; $arrayLine -lt $endRow; $arrayLine++) {
-                            if ($($helpIndex[$arrayLine]).vartype -eq "arrayStart" -or $($helpIndex[$arrayLine]).Indent -ne $($helpIndex[$blockLine]).Indent) {
+                    } elseif ($vartype -eq "array") {
+                 
+                        # # Getting all lines that should be included in the element before adding it to the array
+                        for ($arrayLine = $blockLine+1; $arrayLine -le $endRow; $arrayLine++) {
+                            if ($($helpIndex[$arrayLine]).vartype -ne "dictionary" -or $($helpIndex[$arrayLine]).whitespace -le $($($helpIndex[$blockStart]).whitespace)) {
+                                # Breaking. Next line is not part of the hash
                                 break
                             } else {
-                                $valueNext = get-splittedvalue -value $($inputData[$arrayLine]) -whitespace $helpIndex[$arrayLine].whitespace
+                                 $blockLine ++
+                                
+                                $valueNext = get-splittedvalue -value $($inputData[$arrayLine]) -lineNumber $helpIndex[$arrayLine].lineNumber
                                 $value += $valueNext
                             }
                         }
+                        
                         [void]$array.add($value)
+                    
                     }
                     
                 }
@@ -404,7 +449,7 @@ function convertfrom-yaml-ps {
                 $endRow = $inputDataClean.Length -1
             }
 
-            $value = get-splittedvalue -value $($inputDataClean[$i]) -whitespace $helpIndexClean[$i].whitespace
+            $value = get-splittedvalue -value $($inputDataClean[$i]) -lineNumber $helpIndexClean[$i].lineNumber
             # Do we need to double check if children if key contains string?
             if($value.values -and $value.values -ne ""){
                 $returnedObject = Get-ParsedTree -inputData $inputDataClean -helpIndex $helpIndexClean -startRow $i -endRow $($endRow)
