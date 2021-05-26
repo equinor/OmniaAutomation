@@ -1,18 +1,64 @@
 function get-splittedvalue {
     param (
         [Parameter(Mandatory = $true)]$value,
-        [Parameter(Mandatory = $true)]$whitespace
+        [Parameter(Mandatory = $true)]$linenumber
     )
     $hash = [ordered]@{}
 
-    switch -regex ($value) {
+    $valueObj = ConvertFrom-StringData -Delimiter ':' -StringData $value
+    
+    # If no value it is a key, return hash
+    if (!($($valueObj.values) -eq "")) { 
+    
+    switch -regex ($($valueObj.Values)) {
+        # Looks for quotes in the start, denotes a text value
+        '^"(.*)"[\s]*$' {
+            $valueObj = @{$($valueObj.Keys[0]) = $Matches[1]}
+            #$hash.add($($valueObj.Keys[0]),$Matches[1])
+            break
+        }
+        # Find '- "value1" - value2' if there are quotes around the value then they are removed
+        '^-(.*)$' {
+            #$hash.add($($valueObj.Keys[0]),$Matches[1].split('- ').replace('"','').Trim())
+            $valueObj = @{$($valueObj.Keys[0]) = $Matches[1].split('- ').replace('"','').Trim()}
+            break
+        }
+        # Find '| some text in one line possibly with \n and paragraphs \n\n in the text' keep it all
+        '^\|[\s](.*)$' {
+            $hash.add($($valueObj.Keys[0]), $matches[1])            
+            break
+        }
+        # Find '
+        '^[\s]*\[(.*)\][/s]*$' {
+            #$hash.add($($valueObj.Keys[0]), $matches[1].split(',').replace('"',''))
+            $array = $matches[1] | convertfrom-json
+            $valueObj = @{$($valueObj.Keys[0]) = $array}
+            break
+        }
+        '^>(.*)$' {
+            throw "> not supported yet, check line $linenumber"
+        }
+        default{
+            try {
+                $valueObj = @{$($valueObj.Keys[0]) = [int]$($valueObj.Values) } 
+                Write-host "after the try"
+                #$test22 = [int]$($valueObj.Values)
+                #return $valueOjb
+            }
+            catch {
+                # Not overwritign hash 
+            }
+        }
+    }
+<#  switch -regex ($valueObj[$valueObj.keys][0]) {
         # Find '   test: - "value1" - "value2"'
-        '[\s]*[\S]+:[\s]+-[\s]+.*' {
+        #'[\s]*[\S]+:[\s]+-[\s]+.*' {
+        '^[\s]+-[\s]+.*' {
             #write-host "first-matches: $($matches[0])"
             [System.Collections.ArrayList] $key = @()
             [System.Collections.ArrayList] $newvalue = @()
             #write-host "key with list"
-            $key = $matches[0].substring($whitespace).split(":") -replace '[ ""]',''
+            $key = $matches[0].substring($whitespace) -replace '[ ""]',''
             $newvalue = $key[1].split("-")
             $newvalue.removeat(0)
             #for ($i = 1; $i -lt $array2.Length; $i++ ){
@@ -23,7 +69,8 @@ function get-splittedvalue {
             break
         }
         # Find '    key: | this is a \n new text'
-        '[\s]*[\S]+:[\s]+\|.*' {
+        #'[\s]*[\S]+:[\s]+\|.*' {
+        '^[\s]+\|.*' {
             #write-host "second-matches: $($matches[0])"
             [System.Collections.ArrayList] $key = @()
             #write-host "key with list"
@@ -37,7 +84,8 @@ function get-splittedvalue {
         }
         # Find '    key: > this\n is\n\n a \n new text'
         # Need to fix this one
-        '[\s]*[\S]+:[\s]+>.*' {
+        #'[\s]*[\S]+:[\s]+>.*' {
+        '^[\s]+>.*' {
             #write-host "second-matches: $($matches[0])"
             [System.Collections.ArrayList] $key = @()
             [System.Collections.ArrayList] $newvalue = @()
@@ -52,7 +100,8 @@ function get-splittedvalue {
             break
         }
         # Find '    test: {value1,value2}'
-        '[\s]*[\S]+:[\s]+{.*' {
+        #'[\s]*[\S]+:[\s]+{.*' {
+        '^[\s]+{.*' {
             #write-host "third-matches: $($matches[0])"
             [System.Collections.ArrayList] $key = @()
             [System.Collections.ArrayList] $newvalue = @()
@@ -68,7 +117,8 @@ function get-splittedvalue {
             break
         }
         # Find '      key: "value"'
-        '[\s]*[\S]+:[\s]+[\S]+.*' {
+        #'[\s]*[\S]+:[\s]+[\S]+.*' {
+        '^[\s]+[\S]+.*' {
             #write-host "fourth-matches: $($matches[0])"
             [System.Collections.ArrayList] $key = @()
             [System.Collections.ArrayList] $newvalue = @()
@@ -82,7 +132,8 @@ function get-splittedvalue {
             break
         }
         # Find '   key: ' 
-        '[\s]*[\S]+:[\s]*'{
+        #'[\s]*[\S]+:[\s]*'{
+        '^[\s]*'{
             #write-host "lastmatches: $($matches[0])"
             #write-host "Heading (key)"
             $array = $matches[0].substring($whitespace).split(":")
@@ -90,9 +141,26 @@ function get-splittedvalue {
             break
         }
         default{ write-host "No match"}
+    } #>
     }
-    return $hash
+    return $valueObj
 }
+
+#[ test: testing, testing: one ]
+#- test: testing
+#  testing: one
+#[ test, teset2, test3 ]
+# { test: testing, what: blah}
+
+#$test = '  SubscriptionContext: s5   --asdløkfkjjsdf'
+#$test = '  SubscriptionContext:     "- test - test2 - test3"'
+#$test = '  SubscriptionContext:     -     te  ,st - te   st2       - test3'
+#$test = '  SubscriptionContext: 1'
+#$test = ' fsfdsdf: | sdfsdf sdf sdf sdf sdf\n asdfsdaf\n\n sdfsdf'
+#$test = ' fsfdsdf: > sdfsdf\n sdf sd\\nf sdf sdf\n asdfsdaf\n\n sdfsdf'
+#$test = ' Key1: [ "some vaøaskdjføksdjflue", "another value" ]'
+#$valueObj = ConvertFrom-StringData -Delimiter ':' -stringdata $test
+$output = get-splittedvalue -value $test -linenumber 10
 
 function new-helpIndex {
     param (
