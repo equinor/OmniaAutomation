@@ -14,28 +14,22 @@ function get-splittedvalue {
         write-host "Unprocessed value: [$value]"
         write-host "Processed value: [$processvalue]"
     }
+    # Cleaning key and value, removing - symbol
     $key = $key -replace '^[\s]*-[\s]+',''
     $processvalue = $processvalue -replace '^[\s]*-[\s]+',''
     # If no value it is a key, return hash
     if (!($processvalue -eq "")) { 
         switch -regex ($processvalue) {
+            # Processing strings
             # Looks for quotes in the start, denotes a text value
             '^"(.*)"[\s]*$' {
-                #$valueObj = @{$($valueObj.Keys[0]) = $Matches[1]}
                 $returnvalue = $Matches[1]
-                #$hash.add($($valueObj.Keys[0]),$Matches[1])
                 write-host "I am in the switch, matched `" - Type: $($returnvalue.gettype()) key: $($key) value: $($returnvalue)"
                 write-host "matches: $($Matches[1])"
                 
                 break
             }
-            <# # Find '- "value1" - value2' if there are quotes around the value then they are removed
-            '^[\s]*-[\s](.*)$' {
-                #$valueObj = @{$($valueObj.Keys[0]) = $Matches[1].split('- ').replace('"','').Trim()}
-                $returnvalue = $Matches[1].replace('"','')
-                write-host "I am in the switch, matched  - Type: $($returnvalue.gettype()) key: $($key) value: $($returnvalue)"
-                break
-            } #>
+            #Processing multiline that preserves newlines.
             # Find '| some text in one line possibly with \n and paragraphs \n\n in the text' keep it all
             '^\|' {
                 #$hash.add($($valueObj.Keys[0]), $matches[1]) 
@@ -46,46 +40,38 @@ function get-splittedvalue {
                 #write-host "I am in the switch, matched | - Type: $($returnvalue.gettype()) key: $($key) value: $($returnvalue)" 
                 break
             }
-
-            # Looking for array
+            #Processing multiline that folds newlines, not supported yet.
+            '^>(.*)$' {
+                throw "> not supported yet, check line $linenumber"
+            }
+            # Processing array
             '^[\s]*\[(.*)\][\s]*$' {
-                write-host "found match: $($Matches[0])"
                 try {
                     $returnvalue = @(,$($Matches[0]) | convertfrom-json -Depth 100 -ErrorAction stop)      
                 }
                 catch {
                     throw "Error on line $linenumber in yaml. $_"
                 }
-                write-host $((($test2.gettype()).BaseType).Name)
                 break
             }
-            # Looking for hash
+            # Processing hash/json
             '^[\s]*\{(.*)\}[\s]*$' {
-                write-host "found match: $($Matches[0])"
                 try {
                     $returnvalue = $($Matches[0] | convertfrom-json -Depth 100 -ErrorAction stop)    
                 }
                 catch {
                     throw "Error on line $linenumber in yaml. $_"
                 }
-                write-host $((($test2.gettype()).BaseType).Name)
                 break
             }
-            '^>(.*)$' {
-
-                write-host "I am in the switch, matched > - Type: $($returnvalue.gettype()) key: $($key) value: $($returnvalue)"
-                throw "> not supported yet, check line $linenumber"
-            }
             default{
+                # Processing int's
                 try {
-                    #$valueObj = @{$($valueObj.Keys[0]) = [int]$($valueObj.Values) } 
                     $returnvalue = [int]$($valueObj.Values)
-                    write-host "I am in the switch, matched default try - Type: $($returnvalue.gettype()) key: $($key) value: $($returnvalue)"
-                    Write-host "after the try"
                 }
+                # Processing strings
                 catch {
                     $returnvalue = $processvalue
-                    write-host "I am in the switch, matched default catch - Type: $($returnvalue.gettype()) key: $($key) value: $($returnvalue)"
                 }
             }
         }
