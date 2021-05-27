@@ -31,13 +31,13 @@ function get-splittedvalue {
             }
             #Processing multiline that preserves newlines.
             # Find '| some text in one line possibly with \n and paragraphs \n\n in the text' keep it all
-            '^\|\sNEWLINE(.*)' {
+            '^\|[\s]*NEWLINE(.*)' {
                 $returnvalue = "`'$($Matches[1].replace('NEWLINE','\n'))`'"
                 $returnvalue = $($returnvalue | ConvertFrom-Json -Depth 100 -ErrorAction stop)
                 break
             }
             #Processing multiline that folds newlines.
-            '^>\sNEWLINE(.*)$' {
+            '^>[\s]*NEWLINE(.*)$' {
                 #throw "> not supported yet, check line $linenumber"
                 $returnvalue = "`'$($Matches[1].replace('NEWLINE',' '))`'"
                 $returnvalue = $($returnvalue | ConvertFrom-Json -Depth 100 -ErrorAction stop)
@@ -147,6 +147,9 @@ function new-helpIndex {
             }
             if ( $whitespace -ge $helpIndexDirty[$firstInline].whitespace ) {
                 $vartype = "multiline"
+                if ($i -eq $firstInline) {
+                    $indent = $helpIndexDirty[$firstInline].whitespace
+                }
             } else {
                 $multiline = $false
                 $firstInline = $null
@@ -163,7 +166,7 @@ function new-helpIndex {
             }
         }
         $helpIndexDirty += [PSCustomObject]@{
-            Indent      = $indent
+            Indent     = $indent
             whitespace = $whitespace
             vartype    = $vartype 
             lineNumber = $i
@@ -195,7 +198,7 @@ function Get-CleanData {
             if ($mValue) {     
                 $mValue = "$currentMvalue" + 'NEWLINE' + "$mValue"
             } else {
-                $mValue = "$currentMvalue" + 'NEWLINE' + "$($data[$i].substring($helpIndex[$i-1].whitespace))"
+                $mValue = "$currentMvalue" + 'NEWLINE' + "$($data[$i].substring($helpIndex[$i].indent))"
             }
             [void]$data.RemoveAt($i)
             [void]$helpIndex.RemoveAt($i)
