@@ -42,19 +42,30 @@ function get-splittedvalue {
                 #write-host "I am in the switch, matched | - Type: $($returnvalue.gettype()) key: $($key) value: $($returnvalue)" 
                 break
             }
-            # # Find '
-            # '^[\s]*\[(.*)\][/s]*$' {
-            #     #$hash.add($($valueObj.Keys[0]), $matches[1].split(',').replace('"',''))
-            #     # test1, test2, test3
-            #     $match = '"testing1", testing2, testing4, testing5'
-            #     $match -replace '([a-zA-Z0-9-@]*)', '"$1"'
-            #     #$array = $matches[1] -replace '([a-zA-Z0-9-@]+),\s?([a-zA-Z0-9-@.]+)', '"$1": "$2"'
-            #     $array | convertfrom-json -Depth 100
-            #     #$valueObj = @{$($valueObj.Keys[0]) = $array}
-            #     $returnvalue = $array
-            #     write-host "I am in the switch, matched [..] - Type: $($returnvalue.gettype()) key: $($key) value: $($returnvalue)"
-            #     break
-            # }
+            # Looking for array
+            '^[\s]*\[(.*)\][\s]*$' {
+                write-host "found match: $($Matches[0])"
+                try {
+                    $returnvalue = @(,$($Matches[0]) | convertfrom-json -Depth 100 -ErrorAction stop)      
+                }
+                catch {
+                    throw "Error on line $linenumber in yaml. $_"
+                }
+                write-host $((($test2.gettype()).BaseType).Name)
+                break
+            }
+            # Looking for hash
+            '^[\s]*\{(.*)\}[\s]*$' {
+                write-host "found match: $($Matches[0])"
+                try {
+                    $returnvalue = $($Matches[0] | convertfrom-json -Depth 100 -ErrorAction stop)    
+                }
+                catch {
+                    throw "Error on line $linenumber in yaml. $_"
+                }
+                write-host $((($test2.gettype()).BaseType).Name)
+                break
+            }
             '^>(.*)$' {
                 write-host "I am in the switch, matched > - Type: $($returnvalue.gettype()) key: $($key) value: $($returnvalue)"
                 throw "> not supported yet, check line $linenumber"
