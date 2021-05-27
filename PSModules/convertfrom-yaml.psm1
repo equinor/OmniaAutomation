@@ -11,6 +11,8 @@ function get-splittedvalue {
         $valueObj = ConvertFrom-StringData -Delimiter ':' -StringData $value
         $key = $($valueObj.Keys[0])
         $processvalue = $($valueObj.values)
+        write-host "Unprocessed value: [$value]"
+        write-host "Processed value: [$processvalue]"
     }
     $key = $key -replace '^[\s]*-[\s]+',''
     $processvalue = $processvalue -replace '^[\s]*-[\s]+',''
@@ -35,9 +37,11 @@ function get-splittedvalue {
                 break
             } #>
             # Find '| some text in one line possibly with \n and paragraphs \n\n in the text' keep it all
-            '\|' {
+            '^\|' {
                 #$hash.add($($valueObj.Keys[0]), $matches[1]) 
-                write-host "matches: $($Matches[1])"
+                $returnvalue = $Matches[0]
+                Write-Host "Match: $Matches"
+                write-host "I am in the switch, matched `| - Type: $($returnvalue.gettype()) key: $($key) value: $($returnvalue)"
                 #$returnvalue = $matches[1]          
                 #write-host "I am in the switch, matched | - Type: $($returnvalue.gettype()) key: $($key) value: $($returnvalue)" 
                 break
@@ -55,7 +59,7 @@ function get-splittedvalue {
             #     write-host "I am in the switch, matched [..] - Type: $($returnvalue.gettype()) key: $($key) value: $($returnvalue)"
             #     break
             # }
-            '^>(.*)$' {
+            '^\>(.*)' {
                 write-host "I am in the switch, matched > - Type: $($returnvalue.gettype()) key: $($key) value: $($returnvalue)"
                 throw "> not supported yet, check line $linenumber"
             }
@@ -191,9 +195,9 @@ function Get-CleanData {
                 $currentMvalue = $($data[$i-1])
             }
             if ($mValue) {     
-                $mValue = "$currentMvalue" + '\n' + "$mValue"
+                $mValue = "$currentMvalue" + 'NEWLINE' + "$mValue"
             } else {
-                $mValue = "$currentMvalue" + '\n' + "$($data[$i])"
+                $mValue = "$currentMvalue" + 'NEWLINE' + "$($data[$i])"
             }
             [void]$data.RemoveAt($i)
             [void]$helpIndex.RemoveAt($i)
