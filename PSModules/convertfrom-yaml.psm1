@@ -31,18 +31,17 @@ function get-splittedvalue {
             }
             #Processing multiline that preserves newlines.
             # Find '| some text in one line possibly with \n and paragraphs \n\n in the text' keep it all
-            '^\|' {
-                #$hash.add($($valueObj.Keys[0]), $matches[1]) 
-                $returnvalue = $Matches[0]
-                Write-Host "Match: $Matches"
-                write-host "I am in the switch, matched `| - Type: $($returnvalue.gettype()) key: $($key) value: $($returnvalue)"
-                #$returnvalue = $matches[1]          
-                #write-host "I am in the switch, matched | - Type: $($returnvalue.gettype()) key: $($key) value: $($returnvalue)" 
+            '^\|\sNEWLINE(.*)' {
+                $returnvalue = "`'$($Matches[1].replace('NEWLINE','\n'))`'"
+                $returnvalue = $($returnvalue | ConvertFrom-Json -Depth 100 -ErrorAction stop)
                 break
             }
-            #Processing multiline that folds newlines, not supported yet.
-            '^>(.*)$' {
-                throw "> not supported yet, check line $linenumber"
+            #Processing multiline that folds newlines.
+            '^>\sNEWLINE(.*)$' {
+                #throw "> not supported yet, check line $linenumber"
+                $returnvalue = "`'$($Matches[1].replace('NEWLINE',' '))`'"
+                $returnvalue = $($returnvalue | ConvertFrom-Json -Depth 100 -ErrorAction stop)
+                break
             }
             # Processing array
             '^[\s]*\[(.*)\][\s]*$' {
@@ -196,7 +195,7 @@ function Get-CleanData {
             if ($mValue) {     
                 $mValue = "$currentMvalue" + 'NEWLINE' + "$mValue"
             } else {
-                $mValue = "$currentMvalue" + 'NEWLINE' + "$($data[$i])"
+                $mValue = "$currentMvalue" + 'NEWLINE' + "$($data[$i].substring($helpIndex[$i-1].whitespace))"
             }
             [void]$data.RemoveAt($i)
             [void]$helpIndex.RemoveAt($i)
