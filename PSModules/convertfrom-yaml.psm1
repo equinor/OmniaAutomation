@@ -43,6 +43,16 @@ function get-splittedvalue {
                 $returnvalue = $($returnvalue.replace('NEWLINE',"`n"))   
                 break
             }
+            #Processing False.
+            '^[\s]*(?i)(false)[\s]*$' {
+                $returnvalue = $false
+                break
+            }
+            #Processing True.
+            '^[\s]*(?i)(true)[\s]*$' {
+                $returnvalue = $true
+                break
+            }
             # Processing array
             '^[\s]*\[([\S\s]*)\][\s]*$' {
                 try {
@@ -96,6 +106,7 @@ function new-helpIndex {
     $helpIndexDirty = @()
     # Looping through data and creating help index
     for($i =0; $i -lt $data.Length; $i++ ) {
+        Write-host "I am $i. "
         $indent = 0
         $whitespace = 0
         # Ignore is default (if only whitespaces)
@@ -106,28 +117,42 @@ function new-helpIndex {
                 $whitespace++
             } else {
                 if ($data[$i][$n] -eq "-" -and $data[$i][$n+1] -eq " ") { # Should look for more than one space. Need to fix this
+                    write-host "I am in the first check for '-'"
                     # Checking if key or string:
                     $indent += 2
                     if (($($data[$i]) -Match ":.*$")) { # must fix
+                        write-host "I am in the first check for '-'. Found dictionary"
                         $vartype = "dictionary"
                         
                     } else {
+                        write-host "I am in the first check for '-'. Found value"
                         $vartype = "value"
+                        break
                     }
                 } elseif ($data[$i][$n] -eq "#") {
                     $vartype = "ignore"
+                    write-host "Found #"
                 } else {
+                    write-host "I am in the else 'dictionary'"
                     $vartype = "dictionary"
                 } 
                 # Checking if next line contains '-'. If so, I am an array
                 if (($($data[$i+1]) -Match "^[\s]*[-][\s]+")) {
+                    write-host "I am an array!!"
                     $nextIndent = 0
-                    if ($i -ne $data[$i].Length -1) {
+                    write-host "i: $i -ne $($data.Length -1)"
+                    # Compare with next line if not already on the last line:
+                    if ($i -ne $data.Length -1) {
+                        write-host "Comparing length"
                         $nextIndent = $($($data[$i+1]).Length - $($($data[$i+1]) -replace "^\s*-\s*","").Length)
                     }
+                    write-host "if  $indent -lt $nextIndent" 
                     if ($indent -lt $nextIndent) { # must fix. Might access negative array
+                        write-host "migth access negative array"
                         $vartype = "array"
                     } else {
+                        write-host "What? not an array. I is $i"
+                        # Problem here?
                         $vartype = "dictionary"
                     }
                     
@@ -300,7 +325,6 @@ function Get-ParsedTree {
                             write-host "dictionary hit. Blockline:$blockline. I am $($value.keys[0]) and I retrieved $($returnedObject.keys)"
                             $hash.Add($($value.keys),$returnedObject)
                         } elseif ($vartype -eq "array") {
-                            # must fix. Should add string or hash, not only strings
                             write-host "array hit. Blockline:$blockline. I am $($value.keys[0]) and I retrieved $($returnedObject.keys)"
                             [void]$array.add(@{$($value.keys) = $returnedObject})
                         }
@@ -400,4 +424,5 @@ function convertfrom-yaml-ps {
         }
     }
     $hash
+    #$hash | convertto-json -Depth 100 -ErrorAction stop | convertfrom-json -Depth 100 -ErrorAction stop
 }
