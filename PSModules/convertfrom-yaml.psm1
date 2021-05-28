@@ -29,7 +29,7 @@ function get-splittedvalue {
                 
                 break
             }
-            #Processing multiline that preserves newlines.
+            #Processing multiline that preserves NEWLINEs.
             # Find '| some text in one line possibly with \n and paragraphs \n\n in the text' keep it all
             '^\|[\s]*NEWLINE([\S\s]*)' {
 
@@ -37,7 +37,7 @@ function get-splittedvalue {
                 $returnvalue = $($returnvalue.replace('NEWLINE',"`n"))               
                 break
             }
-            #Processing multiline that folds newlines.
+            #Processing multiline that folds NEWLINEs.
             '^>[\s]*NEWLINE([\S\s]*)$' {
                 $returnvalue = $($Matches[1].replace("`n",'\n'))
                 $returnvalue = $($returnvalue.replace('NEWLINE',"`n"))   
@@ -81,6 +81,7 @@ function get-splittedvalue {
         return $returnvalue
     } else {
         $valueObj = @{$key = $returnvalue}
+        Write-host "retruning key $($valueObj.keys[0]) and value $($valueObj.values[0])"
         return $valueObj
     }
     
@@ -112,25 +113,24 @@ function new-helpIndex {
                         
                     } else {
                         $vartype = "value"
-
                     }
                 } elseif ($data[$i][$n] -eq "#") {
                     $vartype = "ignore"
-                } elseif (($($data[$i+1]) -Match "^[\s]*[-][\s]+")) {
-
+                } else {
+                    $vartype = "dictionary"
+                } 
+                # Checking if next line contains '-'. If so, I am an array
+                if (($($data[$i+1]) -Match "^[\s]*[-][\s]+")) {
                     $nextIndent = 0
                     if ($i -ne $data[$i].Length -1) {
-                        $nextIndent = $($($data[$i+1]).Length - ($($data[$i+1]).trimstart()).Length)
+                        $nextIndent = $($($data[$i+1]).Length - $($($data[$i+1]) -replace "^\s*-\s*","").Length)
                     }
-                    
                     if ($indent -lt $nextIndent) { # must fix. Might access negative array
                         $vartype = "array"
                     } else {
                         $vartype = "dictionary"
                     }
                     
-                } else {
-                    $vartype = "dictionary"
                 }
                 break
             }
@@ -146,11 +146,14 @@ function new-helpIndex {
                     $indent = $helpIndexDirty[$firstInline].whitespace
                 }
             } else {
+                # Not part of a multiline
                 $multiline = $false
                 $firstInline = $null
+
             }
         }
-        else {
+        if (!$multiline) {
+            # Checking if current line is start of a multiline
             for($n =$data[$i].length -1; $n -ge 0; $n-- ) {
                 if ($data[$i][$n] -eq "|" -or $data[$i][$n] -eq ">") {
                     $multiline = $true
@@ -200,7 +203,7 @@ function Get-CleanData {
             
         } else {
             if($mValue) {
-                $data[$i] = $mValue
+                $data[$i] = $mValue + 'NEWLINE'
                 $mValue = $null
             } elseif ($sValue) {
                 $data[$i] = $sValue
@@ -285,17 +288,21 @@ function Get-ParsedTree {
                     # Splitting line into key and value (value should be empty because the key contains sub block (keys))
                     ##
                     ##
-
+                    Write-host "blockline is $blockline"
                     $value = get-splittedvalue -value $($inputData[$blockLine]) -lineNumber $helpIndex[$blockLine].lineNumber
                     if($value.values -and $value.values -ne ""){
                         throw "Error, contains value: $($value.values)"
                     } else {
+                        Write-host "This is happening, $($value.keys[0])"
                         # Adding value from sub block:
                         $returnedObject =Get-ParsedTree -inputData $inputData -helpIndex $helpIndex -startRow $blockLine -endRow $($blockLine + $subBlockCount)
                         if ($vartype -eq "dictionary") {
+                            write-host "dictionary hit. Blockline:$blockline. I am $($value.keys[0]) and I retrieved $($returnedObject.keys)"
                             $hash.Add($($value.keys),$returnedObject)
                         } elseif ($vartype -eq "array") {
-                            [void]$array.add($value)
+                            # must fix. Should add string or hash, not only strings
+                            write-host "array hit. Blockline:$blockline. I am $($value.keys[0]) and I retrieved $($returnedObject.keys)"
+                            [void]$array.add(@{$($value.keys) = $returnedObject})
                         }
                         
                     }
@@ -310,6 +317,8 @@ function Get-ParsedTree {
                     }
                     
                     if ($vartype -eq "dictionary") {
+                        write-host "I am on line $blockline"
+                        write-host "line number $($helpIndex[$blockLine].lineNumber) $($value.gettype())"
                         $hash += $value
                     } elseif ($vartype -eq "array") {
                  
@@ -339,9 +348,11 @@ function Get-ParsedTree {
         }
 
     }
+
     if ($vartype -eq "dictionary") {
         $hash
     } else {
+        Write-host "returning array $($array.count) with value $($($array[0]).values)"
         @(,$array)
     }
 }
@@ -369,15 +380,19 @@ function convertfrom-yaml-ps {
             if (!$endRow) {
                 $endRow = $inputDataClean.Length -1
             }
-
+            Write-host "1"
             $value = get-splittedvalue -value $($inputDataClean[$i]) -lineNumber $helpIndexClean[$i].lineNumber
             if($value.values -and $value.values -ne ""){
+                Write-host "2"
                 $hash += $value
             } else {
+                Write-host "3"
                 $returnedObject = Get-ParsedTree -inputData $inputDataClean -helpIndex $helpIndexClean -startRow $i -endRow $($endRow)
                 if($($returnedObject.Count) -gt 0) {
+                    Write-host "4"
                     $hash.Add($($value.keys),$returnedObject)
                 } else {
+                    Write-host "5"
                     $hash += $value
                 }
 
