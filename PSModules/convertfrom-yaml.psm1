@@ -5,12 +5,13 @@ function get-splittedvalue {
         [Parameter(Mandatory = $true)] $linenumber
     )
     $hash = [ordered]@{}
+    $returnvalue = $null
     if ($onlyvalue){
         $processvalue = $value
     } else {
         $valueObj = ConvertFrom-StringData -Delimiter ':' -StringData $value
         $key = $($valueObj.Keys[0])
-        $processvalue = $($valueObj.values)
+        $processvalue = $($valueObj.values[0])
         write-host "Unprocessed value: [$value]"
         write-host "Processed value: [$processvalue]"
     }
@@ -22,29 +23,27 @@ function get-splittedvalue {
         switch -regex ($processvalue) {
             # Processing strings
             # Looks for quotes in the start, denotes a text value
-            '^"(.*)"[\s]*$' {
+            '^"([\S\s]*)"[\s]*$' {
                 $returnvalue = $Matches[1]
-                write-host "I am in the switch, matched `" - Type: $($returnvalue.gettype()) key: $($key) value: $($returnvalue)"
-                write-host "matches: $($Matches[1])"
                 
                 break
             }
             #Processing multiline that preserves newlines.
             # Find '| some text in one line possibly with \n and paragraphs \n\n in the text' keep it all
-            '^\|[\s]*NEWLINE(.*)' {
-                $returnvalue = "`'$($Matches[1].replace('NEWLINE','\n'))`'"
-                $returnvalue = $($returnvalue | ConvertFrom-Json -Depth 100 -ErrorAction stop)
+            '^\|[\s]*NEWLINE([\S\s]*)' {
+
+                $returnvalue = $($Matches[1].replace("`n",'\n'))
+                $returnvalue = $($returnvalue.replace('NEWLINE',"`n"))               
                 break
             }
             #Processing multiline that folds newlines.
-            '^>[\s]*NEWLINE(.*)$' {
-                #throw "> not supported yet, check line $linenumber"
-                $returnvalue = "`'$($Matches[1].replace('NEWLINE',' '))`'"
-                $returnvalue = $($returnvalue | ConvertFrom-Json -Depth 100 -ErrorAction stop)
+            '^>[\s]*NEWLINE([\S\s]*)$' {
+                $returnvalue = $($Matches[1].replace("`n",'\n'))
+                $returnvalue = $($returnvalue.replace('NEWLINE',"`n"))   
                 break
             }
             # Processing array
-            '^[\s]*\[(.*)\][\s]*$' {
+            '^[\s]*\[([\S\s]*)\][\s]*$' {
                 try {
                     $returnvalue = @(,$($Matches[0]) | convertfrom-json -Depth 100 -ErrorAction stop)      
                 }
@@ -54,7 +53,7 @@ function get-splittedvalue {
                 break
             }
             # Processing hash/json
-            '^[\s]*\{(.*)\}[\s]*$' {
+            '^[\s]*\{([\S\s]*)\}[\s]*$' {
                 try {
                     $returnvalue = $($Matches[0] | convertfrom-json -Depth 100 -ErrorAction stop)    
                 }
@@ -75,7 +74,6 @@ function get-splittedvalue {
             }
         }
     } else { 
-        write-host "I am in the else - key: $($key)"
         $returnvalue = $processvalue
     }
     if ($onlyvalue){
@@ -109,11 +107,9 @@ function new-helpIndex {
                     # Checking if key or string:
                     $indent += 2
                     if (($($data[$i]) -Match ":.*$")) { # must fix
-                        Write-host "aaa"
                         $vartype = "dictionary"
                         
                     } else {
-                        Write-host "bbb"
                         $vartype = "value"
 
                     }
@@ -123,8 +119,6 @@ function new-helpIndex {
 
                     $nextIndent = 0
                     if ($i -ne $data[$i].Length -1) {
-                        write-host "I is $i"
-                        write-host $($($data[$i+1]).Length - ($($data[$i+1]).trimstart()).Length)
                         $nextIndent = $($($data[$i+1]).Length - ($($data[$i+1]).trimstart()).Length)
                     }
                     
@@ -147,7 +141,7 @@ function new-helpIndex {
             }
             if ( $whitespace -ge $helpIndexDirty[$firstInline].whitespace ) {
                 $vartype = "multiline"
-                if ($i -eq $firstInline) {
+                if ($i -ne $firstInline) {
                     $indent = $helpIndexDirty[$firstInline].whitespace
                 }
             } else {
@@ -191,7 +185,7 @@ function Get-CleanData {
     for($i = $data.count -1; $i -ge 0; $i-- ) {
         if ($helpIndex[$i].vartype -eq "multiline") {
             if ($helpIndex[$i-1].vartype -eq "multiline") {
-                $currentMvalue = $($data[$i-1].substring($helpIndex[$i-1].whitespace))
+                $currentMvalue = $($data[$i-1].substring($helpIndex[$i-1].indent))
             } else {
                 $currentMvalue = $($data[$i-1])
             }
@@ -224,7 +218,6 @@ function Get-CleanData {
         if ($data[$i] -Match "^[\s]*[\S]+.*:[\s]+[\S]+") {   
             # If key contains value on line, do not allow value on next line ( no indent)
             if ($($helpIndex[$i+1].Indent) -gt $($helpIndex[$i].Indent) ) {
-                write-host "match on $($data[$i])"
                 #throw "Error on line $($helpIndex[$i].lineNumber), $($inputDataDirty[$($helpIndex[$i].lineNumber)]). While parsing a block mapping, found multipe types"
             }
         } elseif ( -not ($data[$i] -Match "^[\s]*[\S]+.*:[\s]*[\S]*")) {
@@ -365,7 +358,6 @@ function convertfrom-yaml-ps {
     for($i = 0; $i -le $inputDataClean.Length; $i++ ) {
 
         if ($($helpIndexClean[$i].Indent) -eq 0 ) {
-        ####Write-Host "runnign"
             $endRow = $null
             for($n = $i; $n -lt $inputDataClean.Length; $n++ ) {
                 if (($($helpIndexClean[$n+1].Indent) -eq 0)) {
@@ -378,13 +370,16 @@ function convertfrom-yaml-ps {
             }
 
             $value = get-splittedvalue -value $($inputDataClean[$i]) -lineNumber $helpIndexClean[$i].lineNumber
-            # Do we need to double check if children if key contains string?
             if($value.values -and $value.values -ne ""){
-                $returnedObject = Get-ParsedTree -inputData $inputDataClean -helpIndex $helpIndexClean -startRow $i -endRow $($endRow)
-                $hash.Add($value)
+                $hash += $value
             } else {
                 $returnedObject = Get-ParsedTree -inputData $inputDataClean -helpIndex $helpIndexClean -startRow $i -endRow $($endRow)
-                $hash.Add($($value.keys),$returnedObject)
+                if($($returnedObject.Count) -gt 0) {
+                    $hash.Add($($value.keys),$returnedObject)
+                } else {
+                    $hash += $value
+                }
+
             }
         }
     }
