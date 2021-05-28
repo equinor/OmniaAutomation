@@ -12,12 +12,13 @@ function get-splittedvalue {
         $valueObj = ConvertFrom-StringData -Delimiter ':' -StringData $value
         $key = $($valueObj.Keys[0])
         $processvalue = $($valueObj.values[0])
-        write-host "Unprocessed value: [$value]"
-        write-host "Processed value: [$processvalue]"
     }
     # Cleaning key and value, removing - symbol
     $key = $key -replace '^[\s]*-[\s]+',''
     $processvalue = $processvalue -replace '^[\s]*-[\s]+',''
+
+    write-host "Unprocessed value: [$value]"
+    write-host "Processed value: [$processvalue]"
     # If no value it is a key, return hash
     if (!($processvalue -eq "")) { 
         switch -regex ($processvalue) {
@@ -65,7 +66,7 @@ function get-splittedvalue {
             default{
                 # Processing int's
                 try {
-                    $returnvalue = [int]$($valueObj.Values)
+                    $returnvalue = [int]$($processvalue)
                 }
                 # Processing strings
                 catch {
