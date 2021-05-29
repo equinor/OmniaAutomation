@@ -99,103 +99,69 @@ function get-splittedvalue {
 
 function new-helpIndex {
     param (
-        [Parameter(Mandatory = $true)]$data
+        [Parameter(Mandatory = $true)][System.Collections.ArrayList]$data
     )
-    $multiline = $false
-    $firstInline = $null
-    $helpIndexDirty = @()
+    [System.Collections.ArrayList]$helpIndex = @()
     # Looping through data and creating help index
-    for($i =0; $i -lt $data.Length; $i++ ) {
-        Write-host "I am $i. "
-        $indent = 0
-        $whitespace = 0
-        # Ignore is default (if only whitespaces)
-        $vartype = "ignore"
-        for($n =0; $n -lt $data[$i].Length; $n++ ) {
-            if ($data[$i][$n] -eq " ") {
-                $indent++
-                $whitespace++
-            } else {
-                if ($data[$i][$n] -eq "-" -and $data[$i][$n+1] -eq " ") { # Should look for more than one space. Need to fix this
-                    write-host "I am in the first check for '-'"
-                    # Checking if key or string:
-                    $indent += 2
-                    if (($($data[$i]) -Match ":.*$")) { # must fix
-                        write-host "I am in the first check for '-'. Found dictionary"
-                        $vartype = "dictionary"
-                        
-                    } else {
-                        write-host "I am in the first check for '-'. Found value"
-                        $vartype = "value"
-                        break
-                    }
-                } elseif ($data[$i][$n] -eq "#") {
-                    $vartype = "ignore"
-                    write-host "Found #"
-                } else {
-                    write-host "I am in the else 'dictionary'"
-                    $vartype = "dictionary"
-                } 
-                # Checking if next line contains '-'. If so, I am an array
-                if (($($data[$i+1]) -Match "^[\s]*[-][\s]+")) {
-                    write-host "I am an array!!"
-                    $nextIndent = 0
-                    write-host "i: $i -ne $($data.Length -1)"
-                    # Compare with next line if not already on the last line:
-                    if ($i -ne $data.Length -1) {
-                        write-host "Comparing length"
-                        $nextIndent = $($($data[$i+1]).Length - $($($data[$i+1]) -replace "^\s*-\s*","").Length)
-                    }
-                    write-host "if  $indent -lt $nextIndent" 
-                    if ($indent -lt $nextIndent) { # must fix. Might access negative array
-                        write-host "migth access negative array"
-                        $vartype = "array"
-                    } else {
-                        write-host "What? not an array. I is $i"
-                        # Problem here?
-                        $vartype = "dictionary"
-                    }
-                    
-                }
-                break
-            }
+    for($i =0; $i -lt $data.count; $i++ ) {
+        $whitespace = $null
+        $vartype    = $null
+        # Setting vartype to ignore if containing # or empty line (will be removed from the list).
+        if($data[$i] -match '(^[\s]*#)|(^\s*$)') {
+            $vartype    = "ignore"
         }
-        # Checking if line is part of multiline:
-        if ($multiline) {
-            if (!$firstInline) {
-                $firstInline = $i
-            }
-            if ( $whitespace -ge $helpIndexDirty[$firstInline].whitespace ) {
-                $vartype = "multiline"
-                if ($i -ne $firstInline) {
-                    $indent = $helpIndexDirty[$firstInline].whitespace
-                }
-            } else {
-                # Not part of a multiline
-                $multiline = $false
-                $firstInline = $null
+         else {
+            # Setting the whitespace count for lines that will be kept
+            $whitespace = $($($data[$i]).Length - $($($data[$i]) -replace "^\s*","").Length)
+            $indent = $($($data[$i]).Length - $($($data[$i]) -replace "^\s*(-\s+)?","").Length)
+        }
 
-            }
-        }
-        if (!$multiline) {
-            # Checking if current line is start of a multiline
-            for($n =$data[$i].length -1; $n -ge 0; $n-- ) {
-                if ($data[$i][$n] -eq "|" -or $data[$i][$n] -eq ">") {
-                    $multiline = $true
-                } elseif ($data[$i][$n] -eq " ") {
-                    continue
-                }
-                break
-            }
-        }
-        $helpIndexDirty += [PSCustomObject]@{
+        # Creating and adding the item to help index list. Setting the original line number (Needed because some lines will be removed).
+        $indexItem = [PSCustomObject]@{
             Indent     = $indent
             whitespace = $whitespace
-            vartype    = $vartype 
+            vartype    = $vartype
             lineNumber = $i
         }
+        [void]$helpIndex.add($indexItem)
     }
-    $helpIndexDirty
+
+    # Setting the vartype on every item in the list
+    for($i =0; $i -lt $data.count; $i++ ) {
+        # If dictionary has multiple lines
+        if ($data[$i] -match ':\s+[\|>]\s*$' ) {
+            $helpIndex[$i].vartype = "dictionary"
+            $firstMline = $i+1
+            # Getting all the multilines
+            for ($mline = $firstMline; $mline -lt $data.count; $mline++) {
+                if ( $helpIndex[$mline].whitespace -ge $helpIndex[$firstMline].whitespace ) {
+                    $helpIndex[$mline].vartype = "multiline"
+                    $helpIndex[$mline].indent = $helpIndex[$firstMline].indent
+                } else {
+                    # Not part of multiline. Setting $i to $mline -1 to skip multilines in outer loop (need to check this again)
+                    $i = $mline -1
+                    break
+                }
+            }
+            
+        } elseif ($data[$i] -match '^.*:.*' ) {
+            # Checking if array or dictionary
+            if ($data[$i+1] -match '^[\s]*[-][\s]+' ) {
+                # Indent of next line shoul be greater
+                if ($helpIndex[$i].indent -lt $helpIndex[$i+1].indent) {
+                    $helpIndex[$i].vartype = $vartype = "array"
+                } else {
+                    throw "Error on line $($helpIndex[$i].lineNumber). Should be indented"
+                }
+            } else {
+                $helpIndex[$i].vartype = "dictionary"
+            }
+            
+        } elseif ($data[$i] -match '^\s*-\s+(?!.*:).*$' ) {
+            $helpIndex[$i].vartype = $vartype = "value"
+        } 
+    }
+    $helpIndex
 }
 
 function Get-CleanData {
@@ -353,8 +319,12 @@ function Get-ParsedTree {
                                 break
                             } else {
                                  $blockLine ++
-                                
-                                $valueNext = get-splittedvalue -value $($inputData[$arrayLine]) -lineNumber $helpIndex[$arrayLine].lineNumber
+                                 if ($($helpIndex[$blockLine]).vartype -eq "value") {
+                                    #$value = $($($inputData[$blockLine].substring($helpIndex[$blockLine].indent)))
+                                    $valueNext = get-splittedvalue -value $($inputData[$arrayLine]) -lineNumber $helpIndex[$arrayLine].lineNumber -onlyvalue
+                                } else {
+                                    $valueNext = get-splittedvalue -value $($inputData[$arrayLine]) -lineNumber $helpIndex[$arrayLine].lineNumber
+                                }
                                 $value += $valueNext
                             }
                         }
