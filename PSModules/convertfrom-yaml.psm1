@@ -4,7 +4,6 @@ function get-splittedvalue {
         [Parameter(Mandatory = $true)] $value,
         [Parameter(Mandatory = $true)] $linenumber
     )
-    $hash = [ordered]@{}
     $returnvalue = $null
     if ($onlyvalue){
         $processvalue = $value
@@ -60,7 +59,7 @@ function get-splittedvalue {
             # Processing array
             '^[\s]*\[([\S\s]*)\][\s]*$' {
                 try {
-                    $returnvalue = @(,$($Matches[0]) | convertfrom-json -AsHashtable -Depth 100 -ErrorAction stop)      
+                    $returnvalue = @(,$($Matches[0]) | convertfrom-json -Depth 100 -ErrorAction stop)      
                 }
                 catch {
                     throw "Error on line $linenumber in yaml. $_"
@@ -70,7 +69,7 @@ function get-splittedvalue {
             # Processing hash/json
             '^[\s]*\{([\S\s]*)\}[\s]*$' {
                 try {
-                    $returnvalue = $($Matches[0] | convertfrom-json -AsHashtable -Depth 100 -ErrorAction stop)   
+                    $returnvalue = $($Matches[0] | convertfrom-json -Depth 100 -ErrorAction stop)   
                 }
                 catch {
                     throw "Error on line $linenumber in yaml. $_"
@@ -287,7 +286,7 @@ function Get-ParsedTree {
         [Parameter(Mandatory = $true)]$startRow,
         [Parameter(Mandatory = $true)]$endRow
     )
-    $hash = @{}
+    $hash = [ordered]@{}
     for($i = $startRow; $i -le $endRow; $i++ ) {
         Write-Debug "on top. i is $i"
         # Checking if current row contains an array or not (block of arrays)
@@ -324,7 +323,7 @@ function Get-ParsedTree {
             
             # Finished retrieving all array members. Retruning the array
             Write-Debug "Finished retrieving all array members. Retruning the array. Array looks like this: : $(@{$($hashName.keys[0]) = $array} | convertto-json -Depth 100)"
-            $hash += @{$($hashName.keys[0]) = $array}
+            $hash.add($($hashName.keys[0]), $array.ToArray())
 
             Write-Debug "Setting i to $stopRow. arrayblock is already processed"
             $i = $stopRow
@@ -350,10 +349,10 @@ function Get-ParsedTree {
                 Write-Debug "From Get-ParsedTree dictionary element/block-----------------<<<< StartRow:$($i+1) EndRow: $($i + $count ) ----------------------------------------------------------------"
                 # Finished retrieving the hashtable members. Retruning the hashtable
                 Write-Debug "Finished retrieving all hashtable members. Retruning the hashtable. Hashtable looks like this: : $(@{$($hashData.keys[0]) = $returnedData} | convertto-json -depth 100)"
-                $hash += @{$($hashData.keys[0]) = $returnedData}
+                $hash.add("$($hashData.keys[0])", $returnedData)
             } else {
-                write-Debug "No need to parse. No sub block. Hashtable looks like this: : $($hashData | convertto-json -depth 100)"
-                $hash += $hashData
+                write-Debug "No need to parse. No sub block. Hashtable looks like this: : $($hashData | convertto-json -depth 100)"               
+                $hash.add("$($hashData.keys[0])", $($hashData.values[0]))
             }
             Write-Debug "Setting i to $($i + $count ). Dictionary block is already processed"
             $i = $i + $count 
