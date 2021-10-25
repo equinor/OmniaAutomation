@@ -1,0 +1,47 @@
+name: "Create Pull Request"
+description: "Creating Pull request with gh cli. Overwrites branch specified"
+inputs:
+  title:
+    description: "Title of pull request"
+    required: false
+    default: "Automated Pull Request"
+  body:
+    description: "Body of pull request"
+    required: false
+    default: "This is an automated pull request"
+  dedicatedBranch:
+    description: "Head branch the pull request will be created from"
+    required: false
+    default: "automatic-pull-request"
+  Token:
+    description: "Github token for authentication when logging in to gh cli"
+    required: true
+  commitMessage:
+    description: "The commit message in the dedicated branch"
+    required: false
+    default: "create-pull-request commit"
+  destinationBranch: 
+    description: "Destination for Pull Request"
+    required: false
+    default: "Current"
+  force: 
+    description: "Destination for Pull Request"
+    required: false
+    default: false
+runs:
+  using: "composite"
+  steps:
+    - run: |
+        $Env:GITHUB_TOKEN | gh auth login --with-token
+        $PullRequestParameters = @{
+                                    Title         =     "${{ inputs.title }}"
+                                    Body          =     "${{ inputs.body }}"
+                                    Branch        =     "${{ inputs.dedicatedbranch }}"
+                                    commitMessage =     "${{ inputs.commitMessage }}"
+                                    destinationBranch = "${{ inputs.destinationBranch }}"
+                                    force             = "${{ inputs.force }}"
+                                  }
+        & ${{ github.action_path }}/pull-request.ps1 @PullRequestParameters
+      shell: pwsh
+      env:
+        GITHUB_TOKEN: ${{ inputs.Token }}
