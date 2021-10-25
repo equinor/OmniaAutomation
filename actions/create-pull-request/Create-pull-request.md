@@ -41,19 +41,20 @@ jobs:
               - That
           dedicatedBranch: "Temporary-Branch" # A branch that will be overwritten each run
           destinationBranch: "main"           # The pull request target branch
+          force: false                        # Will overwrite dedicated branch even if last commit was not performed by the action.
 ```
 
-| Version |                Commit ref                |
-| :-----: | :--------------------------------------: |
-|   v1    | 10a0f43ea188df64e3a7f050f68f3258726e44ae |
-|   v2    | 6ef0a424c9b39f87ecd5ff0d4168a66c7cd2ed6c |
+| Version |                Commit ref                | Notes |
+| :-----: | :--------------------------------------: | :---: |
+|   v1    | 10a0f43ea188df64e3a7f050f68f3258726e44ae | Initial version |
+|   v2    | 6ef0a424c9b39f87ecd5ff0d4168a66c7cd2ed6c | Support for destination branch                                     |
+|   v3    | b2a968fc7e8d4caf84a771d32a01181e7884423c | Force parameter allows for other commit authors on dedicated branch |
 
 ## Limitations
 
-It is not allowed to use an already created branch as dedicated branch.
-This is to prevent unwanted overwriting of branches.
-
 It is per v2 only allowed to create pull request to one destination branch from a dedicated branch.
 If two or more pull requests are desired, please use two seperate dedicated branches.
+
+## Additional information
 
 If destination branch is "Current", the pull request will use the checked out branch as destination.
