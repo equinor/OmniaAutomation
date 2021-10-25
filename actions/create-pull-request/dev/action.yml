@@ -25,7 +25,7 @@ inputs:
     required: false
     default: "Current"
   force: 
-    description: "Destination for Pull Request"
+    description: "Will overwrite any dedicated branch if true"
     required: false
     default: false
 runs:
