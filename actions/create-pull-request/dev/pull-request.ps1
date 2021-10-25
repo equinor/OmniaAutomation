@@ -4,7 +4,8 @@ param (
     [Parameter(Mandatory = $false)]$body = "This is an automated pull request",
     [Parameter(Mandatory = $false)]$remote = "origin",  
     [Parameter(Mandatory = $false)]$commitMessage = "Create-Pull-Request commit",
-    [Parameter(Mandatory = $false)]$destinationBranch
+    [Parameter(Mandatory = $false)]$destinationBranch,
+    [Parameter(Mandatory = $false)]$force
 )
 
 
@@ -55,7 +56,7 @@ if ($RemoteString -like "*$branch*") {
     write-host "Last author:"
     Write-Host $lastAuthor
     # Last commit needs to be created by 'github-actions-automated-pullrequest-$($branch)' in order to force push to this branch
-    if (!($lastAuthor -like "*$($uniqueUserName)*")) {
+    if (!($lastAuthor -like "*$($uniqueUserName)*") -and ($force -ne 'true')) {
         Write-host "Last commit was not created by '$($uniqueUserName)'"
         Write-host "Branch needs to be created by this action."
         throw ("Last commit was not created by '$($uniqueUserName)'`nBranch needs to be created by this action.")
