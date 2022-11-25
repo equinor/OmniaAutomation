@@ -1,4 +1,5 @@
 # OmniaAutomation
+> **Note**: Solum does not maintain/support the solution
 ## Content
 [Actions](#Actions)  
 <a name="headers"/>
