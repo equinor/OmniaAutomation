@@ -1,8 +1,11 @@
 # OmniaAutomation
-> **Note**: Solum does not maintain/support the solution
+
+> [!Note]
+>  Solum does not maintain/support the solution
+
 ## Content
-[Actions](#Actions)  
-<a name="headers"/>
+
+[Actions](Actions)  
 
 ## Actions
 
