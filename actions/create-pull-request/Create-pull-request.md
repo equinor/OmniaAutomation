@@ -18,7 +18,7 @@ jobs:
   Update-docs:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2 #Checkout feature-branch
+      - uses: actions/checkout@v4 #Checkout feature-branch
       - name: Do some changes
         shell: pwsh
         run: |
